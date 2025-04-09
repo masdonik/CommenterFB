@@ -69,8 +69,8 @@ function addAICommentButtons() {
 }
 
 // Function to generate AI comment using Gemini API
-console.log('AI Comment button clicked'); // Debug log
 async function generateAIComment(inputElement) {
+    console.log('Starting comment generation...'); // Debug log
     try {
         if (!settings.apiKey) {
             throw new Error('Please set your Gemini API key in the extension settings');
@@ -135,27 +135,50 @@ function preparePrompt(context, style) {
 
 // Function to call Gemini API
 async function callGeminiAPI(prompt) {
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateText', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${settings.apiKey}`
-        },
-        body: JSON.stringify({
-            contents: [{
-                parts: [{
-                    text: prompt
-                }]
-            }]
-        })
-    });
+    console.log('Calling Gemini API with prompt:', prompt);
+    console.log('Using API Key:', settings.apiKey ? 'API Key exists' : 'No API Key found');
 
-    if (!response.ok) {
-        throw new Error('Failed to generate comment. Please check your API key.');
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${settings.apiKey}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{
+                        text: prompt
+                    }]
+                }],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 1024,
+                }
+            })
+        });
+
+        console.log('API Response status:', response.status);
+        
+        if (!response.ok) {
+            const errorData = await response.text();
+            console.error('API Error response:', errorData);
+            throw new Error(`Failed to generate comment. Status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('API Response data:', data);
+
+        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
+            throw new Error('Invalid response format from API');
+        }
+
+        return data.candidates[0].content.parts[0].text;
+    } catch (error) {
+        console.error('Error in API call:', error);
+        throw new Error(`Failed to generate comment: ${error.message}`);
     }
-
-    const data = await response.json();
-    return data.candidates[0].content.parts[0].text;
 }
 
 // Function to set up auto-love feature
