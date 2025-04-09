@@ -15,10 +15,16 @@ chrome.storage.onChanged.addListener(function(changes, namespace) {
 
 // Main function to initialize the extension
 function initializeExtension() {
-    // Add AI comment buttons to comment sections
-    addAICommentButtons();
+    console.log('Initializing FB AI Commenter extension...');
+    
+    // Initial attempt to add buttons
+    setTimeout(() => {
+        addAICommentButtons();
+    }, 2000); // Wait for Facebook to load its elements
+    
     // Set up mutation observer to watch for new comments
     observePageChanges();
+    
     // Set up auto-love feature if enabled
     if (settings.autoLove) {
         setupAutoLove();
@@ -27,23 +33,47 @@ function initializeExtension() {
 
 // Function to add AI comment buttons
 function addAICommentButtons() {
-    // Find all comment input areas
-    const commentInputs = document.querySelectorAll('[contenteditable="true"][role="textbox"]');
+    console.log('Adding AI comment buttons...');
     
-    commentInputs.forEach(input => {
+    // Find all comment input areas using multiple Facebook selectors
+    const commentInputs = document.querySelectorAll([
+        '[contenteditable="true"][role="textbox"]',
+        'div[role="textbox"]',
+        'div.notranslate[contenteditable="true"]',
+        'div[data-lexical-editor="true"]'
+    ].join(','));
+    
+    console.log('Found comment inputs:', commentInputs.length);
+    
+    commentInputs.forEach((input, index) => {
+        console.log(`Processing input ${index + 1}/${commentInputs.length}`);
+        
         if (!input.dataset.aiButtonAdded) {
             const buttonContainer = document.createElement('div');
             buttonContainer.className = 'ai-comment-button';
-            buttonContainer.style.cssText = 'cursor: pointer; padding: 5px 10px; margin: 5px; background: #f0f2f5; border-radius: 20px; display: inline-flex; align-items: center; gap: 5px;';
+            buttonContainer.style.cssText = 'cursor: pointer; padding: 5px 10px; margin: 5px; background: #f0f2f5; border-radius: 20px; display: inline-flex; align-items: center; gap: 5px; position: relative; z-index: 1000;';
             buttonContainer.innerHTML = `
                 <i class="fas fa-robot" style="color: #1877f2;"></i>
                 <span style="color: #1877f2;">AI Comment</span>
             `;
             
-            // Add button next to comment input
-            const inputParent = input.closest('.x1n2onr6') || input.parentElement;
-            inputParent.appendChild(buttonContainer);
-            input.dataset.aiButtonAdded = 'true';
+            // Try different parent selectors for better compatibility
+            const possibleParents = [
+                input.closest('.x1n2onr6'),
+                input.closest('.xzueoph'),
+                input.closest('.x78zum5'),
+                input.closest('[role="presentation"]'),
+                input.parentElement
+            ];
+            
+            const inputParent = possibleParents.find(parent => parent) || input.parentElement;
+            console.log(`Found parent for input ${index + 1}:`, inputParent ? 'yes' : 'no');
+            
+            // Insert button in a more visible position
+            try {
+                inputParent.insertBefore(buttonContainer, input.nextSibling);
+                input.dataset.aiButtonAdded = 'true';
+                console.log(`Button added successfully for input ${index + 1}`);
             
             // Add click event listener with improved error handling
             buttonContainer.addEventListener('click', async (e) => {
@@ -64,6 +94,11 @@ function addAICommentButtons() {
                     console.error('Error in comment generation:', error);
                 }
             });
+            } catch (error) {
+                console.error(`Error adding button for input ${index + 1}:`, error);
+            }
+        } else {
+            console.log(`Button already exists for input ${index + 1}`);
         }
     });
 }
@@ -205,22 +240,49 @@ function setupAutoLove() {
 
 // Function to observe page changes
 function observePageChanges() {
+    console.log('Setting up mutation observer...');
+    
     const observer = new MutationObserver((mutations) => {
+        let shouldAddButtons = false;
+        
         mutations.forEach((mutation) => {
+            // Check if any added nodes contain potential comment inputs
             if (mutation.addedNodes.length) {
-                addAICommentButtons();
+                const hasCommentBox = Array.from(mutation.addedNodes).some(node => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        return node.querySelector('[contenteditable="true"], [role="textbox"], .notranslate, [data-lexical-editor="true"]');
+                    }
+                    return false;
+                });
+                
+                if (hasCommentBox) {
+                    shouldAddButtons = true;
+                }
             }
         });
+        
+        // Only call addAICommentButtons if relevant nodes were added
+        if (shouldAddButtons) {
+            console.log('New comment inputs detected, adding buttons...');
+            setTimeout(addAICommentButtons, 500); // Small delay to ensure Facebook's elements are ready
+        }
     });
 
     observer.observe(document.body, {
         childList: true,
-        subtree: true
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['contenteditable', 'role']
     });
+    
+    console.log('Mutation observer setup complete');
 }
 
 // Initialize when page loads
-document.addEventListener('DOMContentLoaded', initializeExtension);
+window.addEventListener('load', initializeExtension);
+
+// Also try to initialize after a short delay
+setTimeout(initializeExtension, 2000);
 
 // Re-initialize when URL changes (for single-page-application behavior)
 let lastUrl = location.href;
