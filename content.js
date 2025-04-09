@@ -37,10 +37,17 @@ function addAICommentButtons() {
     
     // Find all comment input areas using multiple Facebook selectors
     const commentInputs = document.querySelectorAll([
+        // Standard Facebook comment inputs
         '[contenteditable="true"][role="textbox"]',
         'div[role="textbox"]',
         'div.notranslate[contenteditable="true"]',
-        'div[data-lexical-editor="true"]'
+        'div[data-lexical-editor="true"]',
+        // Facebook's specific comment box classes
+        'div.xzsf02u', // Facebook comment box class
+        'div.x1ed109x', // Another Facebook comment box class
+        'div.x1a2a7pz', // Comment box in groups
+        'div[aria-label*="Write a comment"]', // Comment box by aria-label
+        'div[aria-label*="write a comment"]'  // Variation of comment box label
     ].join(','));
     
     console.log('Found comment inputs:', commentInputs.length);
@@ -51,10 +58,23 @@ function addAICommentButtons() {
         if (!input.dataset.aiButtonAdded) {
             const buttonContainer = document.createElement('div');
             buttonContainer.className = 'ai-comment-button';
-            buttonContainer.style.cssText = 'cursor: pointer; padding: 5px 10px; margin: 5px; background: #f0f2f5; border-radius: 20px; display: inline-flex; align-items: center; gap: 5px; position: relative; z-index: 1000;';
+            buttonContainer.style.cssText = `
+                cursor: pointer;
+                padding: 8px 12px;
+                margin: 5px;
+                background: #1877f2;
+                border-radius: 20px;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                position: relative;
+                z-index: 1000;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                transition: all 0.2s ease;
+            `;
             buttonContainer.innerHTML = `
-                <i class="fas fa-robot" style="color: #1877f2;"></i>
-                <span style="color: #1877f2;">AI Comment</span>
+                <i class="fas fa-robot" style="color: #ffffff;"></i>
+                <span style="color: #ffffff; font-weight: 500;">AI Comment</span>
             `;
             
             // Try to find the best place to insert the button
