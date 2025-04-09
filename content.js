@@ -153,33 +153,68 @@ function addAICommentButtons() {
 // Function to generate AI comment using Gemini API
 async function generateAIComment(inputElement) {
     console.log('Starting comment generation...'); // Debug log
+    let button;
     try {
         if (!settings.apiKey) {
             throw new Error('Please set your Gemini API key in the extension settings');
         }
 
         // Show loading state
-        const button = inputElement.parentElement.querySelector('.ai-comment-button');
+        button = inputElement.closest('div')?.querySelector('.ai-comment-button');
+        if (!button) {
+            throw new Error('Could not find AI comment button');
+        }
+
         const originalContent = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-spinner loading"></i>';
-        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin" style="color: #ffffff;"></i>';
+        button.style.opacity = '0.7';
+        button.style.pointerEvents = 'none';
 
         // Get the context (parent comment or post content)
         const context = getCommentContext(inputElement);
+        console.log('Context found:', context);
 
         // Prepare the prompt based on language style
         const prompt = preparePrompt(context, settings.languageStyle);
+        console.log('Prompt prepared:', prompt);
 
         // Call Gemini API
         const response = await callGeminiAPI(prompt);
+        console.log('API Response received:', response);
 
         // Insert the generated comment
-        inputElement.textContent = response;
-        inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+        if (inputElement.getAttribute('contenteditable') === 'true') {
+            // For contenteditable divs
+            inputElement.textContent = response;
+            // Trigger input event
+            inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+            // Trigger keydown events to ensure Facebook recognizes the change
+            const enterEvent = new KeyboardEvent('keydown', {
+                key: 'Enter',
+                code: 'Enter',
+                keyCode: 13,
+                which: 13,
+                bubbles: true
+            });
+            inputElement.dispatchEvent(enterEvent);
+        } else {
+            // For regular input fields
+            inputElement.value = response;
+            inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+            inputElement.dispatchEvent(new Event('change', { bubbles: true }));
+        }
 
         // Restore button state
         button.innerHTML = originalContent;
-        button.disabled = false;
+        button.style.opacity = '1';
+        button.style.pointerEvents = 'auto';
+
+        // Show success message
+        chrome.runtime.sendMessage({
+            type: 'updateStatus',
+            message: 'Comment generated successfully!',
+            status: 'success'
+        });
 
     } catch (error) {
         console.error('Error generating comment:', error);
@@ -188,18 +223,53 @@ async function generateAIComment(inputElement) {
             message: error.message,
             status: 'error'
         });
+        
+        // Restore button state on error
+        if (button) {
+            button.innerHTML = `<i class="fas fa-robot" style="color: #ffffff;"></i><span style="color: #ffffff; font-weight: 500;">AI Comment</span>`;
+            button.style.opacity = '1';
+            button.style.pointerEvents = 'auto';
+        }
     }
 }
 
 // Function to get comment context
 function getCommentContext(inputElement) {
-    // Try to find parent comment or post content
-    const parentComment = inputElement.closest('[role="article"]');
-    if (parentComment) {
-        const contentElement = parentComment.querySelector('[data-ad-preview="message"]');
-        return contentElement ? contentElement.textContent.trim() : '';
+    console.log('Getting comment context...');
+    try {
+        // Try to find parent comment or post content
+        const parentArticle = inputElement.closest('[role="article"]');
+        if (!parentArticle) {
+            console.log('No parent article found');
+            return 'Write a general friendly comment';
+        }
+
+        // Try different selectors for content
+        const contentSelectors = [
+            '[data-ad-preview="message"]',
+            '[data-ad-comet-preview="message"]',
+            'div[dir="auto"]',
+            '.x193iq5w', // Facebook post content class
+            '[data-testid="post-content"]'
+        ];
+
+        for (const selector of contentSelectors) {
+            const contentElement = parentArticle.querySelector(selector);
+            if (contentElement) {
+                const text = contentElement.textContent.trim();
+                if (text) {
+                    console.log('Found context:', text);
+                    return text;
+                }
+            }
+        }
+
+        console.log('No content found with selectors, using default');
+        return 'Write a general friendly comment';
+    } catch (error) {
+        console.error('Error getting context:', error);
+        return 'Write a general friendly comment';
     }
-    return '';
 }
 
 // Function to prepare prompt based on language style
