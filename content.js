@@ -57,23 +57,21 @@ function addAICommentButtons() {
                 <span style="color: #1877f2;">AI Comment</span>
             `;
             
-            // Try different parent selectors for better compatibility
-            const possibleParents = [
-                input.closest('.x1n2onr6'),
-                input.closest('.xzueoph'),
-                input.closest('.x78zum5'),
-                input.closest('[role="presentation"]'),
-                input.parentElement
-            ];
-            
-            const inputParent = possibleParents.find(parent => parent) || input.parentElement;
-            console.log(`Found parent for input ${index + 1}:`, inputParent ? 'yes' : 'no');
-            
-            // Insert button in a more visible position
+            // Try to find the best place to insert the button
             try {
-                inputParent.insertBefore(buttonContainer, input.nextSibling);
-                input.dataset.aiButtonAdded = 'true';
-                console.log(`Button added successfully for input ${index + 1}`);
+                // Find the comment box container
+                const commentContainer = input.closest('[role="presentation"]') || 
+                                      input.closest('[contenteditable="true"]') || 
+                                      input.parentElement;
+                
+                if (commentContainer) {
+                    // Insert the button after the comment container
+                    commentContainer.insertAdjacentElement('afterend', buttonContainer);
+                    input.dataset.aiButtonAdded = 'true';
+                    console.log(`Button added successfully for input ${index + 1}`);
+                } else {
+                    console.log(`No suitable container found for input ${index + 1}`);
+                }
             
             // Add click event listener with improved error handling
             buttonContainer.addEventListener('click', async (e) => {
