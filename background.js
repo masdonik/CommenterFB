@@ -75,12 +75,3 @@ chrome.action.onClicked.addListener((tab) => {
         });
     }
 });
-
-// Error handling and logging
-function handleError(error) {
-    console.error('Extension error:', error);
-    // You could implement error reporting to your server here
-}
-
-process.on('unhandledRejection', handleError);
-process.on('uncaughtException', handleError);
