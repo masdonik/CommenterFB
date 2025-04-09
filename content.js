@@ -288,27 +288,62 @@ function preparePrompt(context, style) {
 // Function to call Gemini API
 async function callGeminiAPI(prompt) {
     console.log('Calling Gemini API with prompt:', prompt);
-    console.log('Using API Key:', settings.apiKey ? 'API Key exists' : 'No API Key found');
+    
+    if (!settings.apiKey) {
+        throw new Error('API key is required. Please set it in the extension settings.');
+    }
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${settings.apiKey}`, {
+        // First, validate the API key with a simple request
+        const validateResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${settings.apiKey}`);
+        if (!validateResponse.ok) {
+            throw new Error('Invalid API key. Please check your API key in the extension settings.');
+        }
+
+        // Prepare the API request
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${settings.apiKey}`;
+        const requestBody = {
+            contents: [{
+                parts: [{
+                    text: prompt
+                }]
+            }],
+            generationConfig: {
+                temperature: 0.7,
+                topK: 40,
+                topP: 0.95,
+                maxOutputTokens: 150,
+                stopSequences: [".", "!", "?"],
+                candidateCount: 1
+            },
+            safetySettings: [
+                {
+                    category: "HARM_CATEGORY_HARASSMENT",
+                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    category: "HARM_CATEGORY_HATE_SPEECH",
+                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                }
+            ]
+        };
+
+        // Make the API call
+        console.log('Making API request with body:', JSON.stringify(requestBody, null, 2));
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }],
-                generationConfig: {
-                    temperature: 0.7,
-                    topK: 40,
-                    topP: 0.95,
-                    maxOutputTokens: 1024,
-                }
-            })
+            body: JSON.stringify(requestBody)
         });
 
         console.log('API Response status:', response.status);
@@ -316,17 +351,34 @@ async function callGeminiAPI(prompt) {
         if (!response.ok) {
             const errorData = await response.text();
             console.error('API Error response:', errorData);
-            throw new Error(`Failed to generate comment. Status: ${response.status}`);
+            throw new Error(`Failed to generate comment (Status ${response.status}). Please try again.`);
         }
 
         const data = await response.json();
         console.log('API Response data:', data);
 
-        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
-            throw new Error('Invalid response format from API');
+        // Validate response format
+        if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+            console.error('Invalid API response format:', data);
+            throw new Error('Received invalid response format from API');
         }
 
-        return data.candidates[0].content.parts[0].text;
+        // Clean and format the response
+        let comment = data.candidates[0].content.parts[0].text.trim();
+        
+        // Ensure the comment ends with proper punctuation
+        if (!comment.match(/[.!?]$/)) {
+            comment += '.';
+        }
+
+        // Ensure the comment isn't too long
+        if (comment.length > 500) {
+            comment = comment.substring(0, 497) + '...';
+        }
+
+        console.log('Generated comment:', comment);
+        return comment;
+
     } catch (error) {
         console.error('Error in API call:', error);
         throw new Error(`Failed to generate comment: ${error.message}`);
