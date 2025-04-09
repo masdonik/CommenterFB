@@ -50,6 +50,7 @@ function addAICommentButtons() {
 }
 
 // Function to generate AI comment using Gemini API
+console.log('AI Comment button clicked'); // Debug log
 async function generateAIComment(inputElement) {
     try {
         if (!settings.apiKey) {
