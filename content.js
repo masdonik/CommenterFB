@@ -34,17 +34,36 @@ function addAICommentButtons() {
         if (!input.dataset.aiButtonAdded) {
             const buttonContainer = document.createElement('div');
             buttonContainer.className = 'ai-comment-button';
+            buttonContainer.style.cssText = 'cursor: pointer; padding: 5px 10px; margin: 5px; background: #f0f2f5; border-radius: 20px; display: inline-flex; align-items: center; gap: 5px;';
             buttonContainer.innerHTML = `
-                <i class="fas fa-robot"></i>
-                <span>AI Comment</span>
+                <i class="fas fa-robot" style="color: #1877f2;"></i>
+                <span style="color: #1877f2;">AI Comment</span>
             `;
             
             // Add button next to comment input
-            input.parentElement.appendChild(buttonContainer);
+            const inputParent = input.closest('.x1n2onr6') || input.parentElement;
+            inputParent.appendChild(buttonContainer);
             input.dataset.aiButtonAdded = 'true';
             
-            // Add click event listener
-            buttonContainer.addEventListener('click', () => generateAIComment(input));
+            // Add click event listener with improved error handling
+            buttonContainer.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('AI Comment button clicked');
+                try {
+                    await generateAIComment(input);
+                    // Trigger auto-like if enabled
+                    if (settings.autoLove) {
+                        const likeButton = input.closest('[role="article"]')?.querySelector('[aria-label="Like"]');
+                        if (likeButton && !likeButton.dataset.autoLoved) {
+                            likeButton.click();
+                            likeButton.dataset.autoLoved = 'true';
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error in comment generation:', error);
+                }
+            });
         }
     });
 }
@@ -141,12 +160,23 @@ async function callGeminiAPI(prompt) {
 
 // Function to set up auto-love feature
 function setupAutoLove() {
-    setInterval(() => {
-        const likeButtons = document.querySelectorAll('[aria-label="Like"]:not([data-auto-loved="true"])');
-        likeButtons.forEach(button => {
-            button.click();
-            button.dataset.autoLoved = 'true';
-        });
+    // Clear any existing intervals
+    if (window.autoLoveInterval) {
+        clearInterval(window.autoLoveInterval);
+    }
+    
+    window.autoLoveInterval = setInterval(() => {
+        if (settings.autoLove) {
+            console.log('Checking for new like buttons...');
+            const likeButtons = document.querySelectorAll('[aria-label="Like"]:not([data-auto-loved="true"])');
+            likeButtons.forEach(button => {
+                if (button.offsetParent !== null) { // Check if button is visible
+                    console.log('Clicking like button');
+                    button.click();
+                    button.dataset.autoLoved = 'true';
+                }
+            });
+        }
     }, 2000);
 }
 
