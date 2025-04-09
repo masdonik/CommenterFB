@@ -61,7 +61,7 @@ function addAICommentButtons() {
             buttonContainer.style.cssText = `
                 cursor: pointer;
                 padding: 8px 12px;
-                margin: 5px;
+                margin: 8px 5px;
                 background: #1877f2;
                 border-radius: 20px;
                 display: inline-flex;
@@ -71,7 +71,22 @@ function addAICommentButtons() {
                 z-index: 1000;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
                 transition: all 0.2s ease;
+                font-weight: 500;
+                border: 2px solid transparent;
             `;
+
+            // Add hover effect
+            buttonContainer.addEventListener('mouseenter', () => {
+                buttonContainer.style.background = '#1565c0';
+                buttonContainer.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+                buttonContainer.style.transform = 'translateY(-1px)';
+            });
+
+            buttonContainer.addEventListener('mouseleave', () => {
+                buttonContainer.style.background = '#1877f2';
+                buttonContainer.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                buttonContainer.style.transform = 'translateY(0)';
+            });
             buttonContainer.innerHTML = `
                 <i class="fas fa-robot" style="color: #ffffff;"></i>
                 <span style="color: #ffffff; font-weight: 500;">AI Comment</span>
@@ -79,14 +94,28 @@ function addAICommentButtons() {
             
             // Try to find the best place to insert the button
             try {
-                // Find the comment box container
+                // Find the comment box container and its parent
                 const commentContainer = input.closest('[role="presentation"]') || 
                                       input.closest('[contenteditable="true"]') || 
                                       input.parentElement;
                 
-                if (commentContainer) {
-                    // Insert the button after the comment container
-                    commentContainer.insertAdjacentElement('afterend', buttonContainer);
+                const commentParent = commentContainer?.parentElement;
+                
+                if (commentContainer && commentParent) {
+                    // Create a container for the button
+                    const buttonWrapper = document.createElement('div');
+                    buttonWrapper.style.cssText = `
+                        display: flex;
+                        align-items: center;
+                        justify-content: flex-start;
+                        padding: 4px 8px;
+                        margin-top: 4px;
+                    `;
+                    
+                    buttonWrapper.appendChild(buttonContainer);
+                    
+                    // Insert the button wrapper after the comment container
+                    commentParent.insertBefore(buttonWrapper, commentContainer.nextSibling);
                     input.dataset.aiButtonAdded = 'true';
                     console.log(`Button added successfully for input ${index + 1}`);
                 } else {
